@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Dict
 
 from github import Auth, Github
 import logging
@@ -15,7 +15,6 @@ class GitHubService:
         self.gh = Github(auth=auth)
 
     def get_code_changes_in_pull_request(self, pull_request) -> List[BlockOfCodeChanges]:
-        print(f'{pull_request}')
         repo = self.gh.get_repo(pull_request['head']['repo']['full_name'])
         pr = repo.get_pull(pull_request['number'])
 
@@ -24,20 +23,26 @@ class GitHubService:
         list_of_block_of_code_changes = []
 
         for file in files:
-            print(f'Processing file {file}')
+            print(f'Processing file {file.patch}')
 
             patch_content = file.patch
 
             patch_lines = patch_content.splitlines()
 
-            added_lines = [line[2:] for line in patch_lines if line.startswith('+ ') and not line.startswith('+++')]
+            added_lines = [(line_number, line[2:]) for line_number, line in enumerate(patch_lines) if line.startswith('+ ') and not line.startswith('+++')]
             print('Added lines:')
-            for added_line in added_lines:
+            for line_number, added_line in added_lines:
                 print(added_line)
 
-            list_of_block_of_code_changes.append(BlockOfCodeChanges('\n'.join(added_lines), file.filename, ''))
+            code = map(lambda t: 'Line ' + str(t[0]) + ': ' + t[1], added_lines)
+            list_of_block_of_code_changes.append(BlockOfCodeChanges('\n'.join(code), file.filename, ''))
             print("\n" + "=" * 50 + "\n")
         print("\n" + "=" * 50 + "\n")
 
         print(list_of_block_of_code_changes)
         return list_of_block_of_code_changes
+
+    def get_languages_in_repo(self, pull_request) -> dict[str, int]:
+        repo = self.gh.get_repo(pull_request['head']['repo']['full_name'])
+        languages = repo.get_languages()
+        return languages
